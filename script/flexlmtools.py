@@ -20,26 +20,29 @@ class FlexlmLicenseManager:
         Parameters
         ----------
         lmutil : str
-                Path to lmutil execution file
+            Path to lmutil execution file
         timeout : int
-                Duration for time-out (optional, default=5)
+            Duration for time-out (optional, default=5)
         """
         if not os.path.exists(lmutil):
             raise ValueError(f'Error: {lmutil} is not found.')
         self.lmutil = lmutil
         self.timeout = timeout
 
-    def query(self, server, feature=None):
+    def query(self, server, daemon=None, feature=None):
         """
         Query to a server
 
         Parameters
         ----------
         server : str
-                License server in the form of 'port@host'
+            License server in the form of 'port@host'
+        daemon : str
+            Vendor daemon (optional)
+            Specifying daemon makes a query faster.
         feature : str
-                License feature (optional, default=None)
-                If feature is None, query all features.
+            License feature (optional, default=None)
+            If feature is None, query all features.
 
         Returns
         -------
@@ -47,8 +50,13 @@ class FlexlmLicenseManager:
             Query result output to stdout
         """
         def create_command():
-            return [self.lmutil, 'lmstat', '-a', '-c', server] if feature is None \
-                else [self.lmutil, 'lmstat', '-c', server, '-f', feature]
+            cmd = [self.lmutil, 'lmstat', '-c', server]
+            if daemon is None:
+                return cmd + ['-a'] if feature is None \
+                    else cmd + ['-f', feature]
+            else:
+                return cmd + ['-a', '-S', daemon] if feature is None \
+                    else cmd + ['-f', feature, '-S', daemon]
     
         cmd = create_command()
         proc = sp.run(cmd, stdout=sp.PIPE, stderr=sp.PIPE, \
