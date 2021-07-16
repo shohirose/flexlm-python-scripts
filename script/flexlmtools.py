@@ -56,7 +56,7 @@ class FlexlmLicenseManager:
         return proc.stdout
 
 
-def parse_query(lines, features):
+def parse_query(lines, features=None):
     """
     Parse a query and returns the issued and used number of a given feature
     
@@ -64,24 +64,27 @@ def parse_query(lines, features):
     ----------
     lines : str
         Query result
-    features : list(str)
-        Feature names to extract
+    features : list(str) or None
+        Feature names to extract (optional)
+        If features is None, return all the features
 
     Returns
     -------
     dict(feature, tuple(int, int))
         Dictionary of feature name and a tuple of issued and used feature
     """
-    def create_regexpr(feature):
-        return re.compile('Users of ' + feature + ':' \
+    def create_regexpr():
+        s = '\w' if features is None else '|'.join(features)
+        return re.compile('Users of (?P<feature>' + s + '):' \
             '  \(Total of (?P<issued>\d+) licenses?? issued;' \
             '  Total of (?P<used>\d+) licenses?? in use\)')
 
-    def get_feature_status(reg):
-        m = reg.search(lines)
-        return int(m.group('issued')), int(m.group('used')) if m else 0, 0
+    def to_tuple(match):
+        feature = match.group('feature')
+        issued = int(match.group('issued')) if match else 0
+        used = int(match.group('used')) if match else 0
+        return feature, (issued, used)
 
-    regs = list(map(create_regexpr, features))
-    status = list(map(get_feature_status, regs))
-    return dict(zip(features, status))
-
+    reg = create_regexpr()
+    matches = reg.findall(lines)
+    return dict(map(to_tuple, matches))
