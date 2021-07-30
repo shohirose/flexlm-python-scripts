@@ -3,7 +3,7 @@ import re
 import subprocess as sp
 
 
-def validate_server_name(server):
+def is_valid_server_name(server):
     """
     Validate server name if it is in the form of '1234@server-name'
 
@@ -79,7 +79,7 @@ class FlexlmLicenseManager:
 
             return cmd
 
-        if not validate_server_name(server):
+        if not is_valid_server_name(server):
             raise ValueError(f'Incorrect server format: {server}')
 
         cmd = create_command()

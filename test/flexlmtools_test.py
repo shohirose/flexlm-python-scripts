@@ -1,4 +1,4 @@
-from flexlmtools import parse_query, validate_server_name
+from flexlmtools import parse_query, is_valid_server_name
 import pytest
 
 APP_FEATURES = {'feat1': (2, 0), 'feat2': (5, 1),
@@ -30,8 +30,8 @@ def test_parse_query():
     assert all(dct[feature] == values for feature,
                values in APP_FEATURES.items())
 
-def test_validate_server_name():
-    assert validate_server_name('6200@test-server.org')
-    assert not validate_server_name('0123@test-serv')
-    assert not validate_server_name('1234@test_serv')
-    assert not validate_server_name('3100@test#serv')
+def test_is_valid_server_name():
+    assert is_valid_server_name('6200@test-server.org')
+    assert not is_valid_server_name('0123@test-serv')
+    assert not is_valid_server_name('1234@test_serv')
+    assert not is_valid_server_name('3100@test#serv')
