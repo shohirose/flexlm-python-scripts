@@ -3,6 +3,23 @@ import re
 import subprocess as sp
 
 
+def validate_server_name(server):
+    """
+    Validate server name if it is in the form of '1234@server-name'
+
+    Parameters
+    ----------
+    server : str
+        Server name
+
+    Returns
+    -------
+    bool
+    """
+    m = re.match(r'^[1-9][0-9]*@[a-zA-Z0-9-.]+$', server)
+    return True if m else False
+
+
 class FlexlmLicenseManager:
     """
     Flexlm License Manager class.
@@ -51,15 +68,22 @@ class FlexlmLicenseManager:
         """
         def create_command():
             cmd = [self.lmutil, 'lmstat', '-c', server]
-            if daemon is None:
-                return cmd + ['-a'] if feature is None \
-                    else cmd + ['-f', feature]
+
+            if feature is None:
+                cmd.append('-a')
             else:
-                return cmd + ['-a', '-S', daemon] if feature is None \
-                    else cmd + ['-f', feature, '-S', daemon]
-    
+                cmd.extend('-f', feature)
+
+            if daemon is not None:
+                cmd.extend('-S', daemon)
+
+            return cmd
+
+        if not validate_server_name(server):
+            raise ValueError(f'Incorrect server format: {server}')
+
         cmd = create_command()
-        proc = sp.run(cmd, stdout=sp.PIPE, stderr=sp.PIPE, \
+        proc = sp.run(cmd, stdout=sp.PIPE, stderr=sp.PIPE,
                       encoding='utf-8', timeout=self.timeout)
         return proc.stdout
 
@@ -67,12 +91,12 @@ class FlexlmLicenseManager:
 def parse_query(lines, features=None):
     """
     Parse a query and returns the issued and used number of a given feature
-    
+
     Parameters
     ----------
     lines : str
         Query result
-    features : list(str) or None
+    features : list[str] or None
         Feature names to extract (optional)
         If features is None, return all the features
 
@@ -82,17 +106,44 @@ def parse_query(lines, features=None):
         Dictionary of feature name and a tuple of issued and used feature
     """
     def create_regexpr():
-        s = '\w' if features is None else '|'.join(features)
-        return re.compile('Users of (?P<feature>' + s + '):' \
-            '  \(Total of (?P<issued>\d+) licenses?? issued;' \
-            '  Total of (?P<used>\d+) licenses?? in use\)')
+        s = r'[a-zA-Z][a-zA-Z0-9_-]*' if features is None else '|'.join(
+            features)
+        return re.compile(r'Users of (' + s + '):'
+                          r'  \(Total of (\d+) licenses?? issued;'
+                          r'  Total of (\d+) licenses?? in use\)')
 
     def to_tuple(match):
-        feature = match.group('feature')
-        issued = int(match.group('issued')) if match else 0
-        used = int(match.group('used')) if match else 0
+        feature = match[0]
+        issued = int(match[1])
+        used = int(match[2])
         return feature, (issued, used)
 
     reg = create_regexpr()
     matches = reg.findall(lines)
     return dict(map(to_tuple, matches))
+
+
+def get_license_status(manager, server, daemon, feature):
+    """
+    Get license status of a given feature
+
+    Parameters
+    ----------
+    manager : flexlmtools.FlexlmLicenseManager
+        Flexlm License Manager
+    server : str
+        Server in the form of "port@server"
+    daemon : str
+        License daemon
+    feature : str
+        Feature name
+
+    Returns
+    -------
+    dict or None
+        Dictionary of feature name and the tuple of the number
+        of issued and used licenses
+    """
+    result = manager.query(server, daemon, feature)
+    dct = parse_query(result, features=[feature])
+    return dct[feature] if dct else None
